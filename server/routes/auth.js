@@ -94,7 +94,12 @@ router.post('/register', loginLimiter, async (req, res) => {
       });
     }
 
-    console.error('Registration failed:', error.message);
+    console.error('Registration failed:', {
+  message: error.message,
+  code: error.code,
+  command: error.command,
+  response: error.response
+});
 
     return res.status(503).json({
       error: 'Unable to complete registration. Please try again.'
