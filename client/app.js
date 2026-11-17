@@ -188,9 +188,13 @@ route();
               maxlength="6" placeholder="Enter 6-digit code">
 
             <button type="submit">Verify Email</button>
-          </form>
+</form>
 
-          <p><a href="#login">Back to Login</a></p>
+<button type="button" id="resendVerificationBtn">
+  Resend Verification Code
+</button>
+
+<p><a href="#login">Back to Login</a></p>
         </div>
       </section>
     `;
@@ -1395,8 +1399,41 @@ else if (act === 'readAllNotifications') {
     else if (act === 'mfaSetup') { const d = await api('/auth/mfa/setup', 'POST', {}); $('#mfaBox').innerHTML = `<p class="small">Add this key to your authenticator app (Google Authenticator, Authy…):</p><code class="user-select-all">${esc(d.secret)}</code>
       <form id="mfaForm" class="input-group input-group-sm mt-2"><input class="form-control" name="code" placeholder="6-digit code" maxlength="6" required><button class="btn btn-success">Enable</button></form>`; }
     else if (act === 'mfaOff') { await api('/auth/mfa/disable', 'POST', {}); me.mfa_enabled = false; toast('MFA disabled'); route(); }
-  } catch (err) { fail(err); }
+   } catch (err) { fail(err); }
 });
+
+document.addEventListener('click', async e => {
+  const button = e.target.closest('#resendVerificationBtn');
+  if (!button) return;
+
+  const emailInput = document.querySelector(
+    '#verifyEmailForm [name="email"]'
+  );
+
+  const email = emailInput?.value.trim();
+
+  if (!email) {
+    toast('Please enter your email address.', 'error');
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const result = await api(
+      '/auth/resend-verification',
+      'POST',
+      { email }
+    );
+
+    toast(result.message, 'success');
+  } catch (err) {
+    fail(err);
+  } finally {
+    button.disabled = false;
+  }
+});
+
 document.addEventListener('change', async e => {
   const t = e.target;
   try {

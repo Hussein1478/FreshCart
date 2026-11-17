@@ -107,6 +107,79 @@ router.post('/register', loginLimiter, async (req, res) => {
   }
 });
 
+
+// Resend customer email verification code
+router.post('/resend-verification', loginLimiter, async (req, res) => {
+  const email = v.clean(req.body.email, 150).toLowerCase();
+
+  if (!v.isEmail(email)) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
+  }
+
+  if (!isConfigured()) {
+    return res.status(503).json({
+      error: 'Email verification service is not configured.'
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, full_name, email_verified
+       FROM users
+       WHERE email = $1 AND role = 'customer'
+       LIMIT 1`,
+      [email]
+    );
+
+    if (!result.rows.length || result.rows[0].email_verified) {
+      return res.json({
+        message: 'If your account requires verification, a new code will be sent.'
+      });
+    }
+
+    const user = result.rows[0];
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const codeHash = crypto.createHash('sha256')
+      .update(code)
+      .digest('hex');
+
+    await pool.query(
+      `UPDATE email_verification_tokens
+       SET used_at = NOW()
+       WHERE user_id = $1 AND used_at IS NULL`,
+      [user.id]
+    );
+
+    await pool.query(
+      `INSERT INTO email_verification_tokens
+       (user_id, code_hash, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+      [user.id, codeHash]
+    );
+
+    await sendVerificationEmail(email, user.full_name, code);
+
+    log(user.id, 'VERIFICATION_CODE_RESENT', email, req.ip);
+
+    return res.json({
+      message: 'A new verification code has been sent to your email.'
+    });
+
+  } catch (error) {
+    console.error('Resend verification failed:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response
+    });
+
+    return res.status(503).json({
+      error: 'Unable to send a verification code. Please try again.'
+    });
+  }
+});
+
 // Verify customer email using a six-digit code
 router.post('/verify-email', loginLimiter, async (req, res) => {
   const email = v.clean(req.body.email, 150).toLowerCase();
