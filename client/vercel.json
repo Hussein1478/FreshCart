@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://freshcart-xc4l.onrender.com/api/:path*"
+    }
+  ]
+}
