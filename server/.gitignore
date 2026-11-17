@@ -1,0 +1,31 @@
+
+# Environment variables and secrets
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Allow example environment files
+!.env.example
+!**/.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Database backups
+*.dump
+*.backup
+*.bak
+
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Exclude the entire documentation folder
+/docs/
