@@ -65,7 +65,14 @@ hsts: isProd || useTLS
 
 }));
 if (isProd && !useTLS) app.use((req, res, next) => req.secure ? next() : res.redirect('https://' + req.headers.host + req.url));
-app.use(express.json({ limit: '20kb' }));
+app.use(express.json({
+  limit: '20kb',
+  verify(req, res, buf) {
+    if (req.originalUrl.split('?')[0] === '/api/paystack/webhook') {
+      req.rawBody = Buffer.from(buf);
+    }
+  }
+}));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 300, standardHeaders: true, legacyHeaders: false }));
 
 app.use(session({                                                           // Secure session management
@@ -86,6 +93,7 @@ app.use(express.static(CLIENT));
 const wrap = r => { r.stack.forEach(l => { if (l.route) l.route.stack.forEach(h => { const f = h.handle; if (f.constructor.name === 'AsyncFunction') h.handle = (q, s, n) => f(q, s, n).catch(n); }); }); return r; };
 app.use('/api/auth', wrap(require('./routes/auth')));
 app.use('/api/admin', wrap(require('./routes/admin')));
+app.use('/api/paystack', wrap(require('./routes/paystack')));
 app.use('/api', wrap(require('./routes/shop')));
 app.use('/api/invoices', wrap(require('./routes/invoices')));
 app.use('/api/delivery', wrap(require('./routes/delivery')));

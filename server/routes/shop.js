@@ -315,19 +315,29 @@ router.delete('/cart/:productId', customer, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ---- Checkout + Payment (gateway is simulated; no card data is stored) ----
-const luhn = n => { let s = 0, alt = false; for (let i = n.length - 1; i >= 0; i--) { let d = +n[i]; if (alt) { d *= 2; if (d > 9) d -= 9; } s += d; alt = !alt; } return s % 10 === 0; };
+// ---- Checkout + Paystack payment validation ----
 function checkPayment(method, d = {}) {
-  if (method === 'Mobile Money') return /^\+?[0-9]{9,15}$/.test(String(d.phone || '')) ? null : 'Enter a valid mobile money number';
-  if (method === 'Credit Card') {
-    const n = String(d.number || '').replace(/\s/g, '');
-    if (!/^\d{13,19}$/.test(n) || !luhn(n)) return 'Invalid card number';
-    if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(String(d.expiry || ''))) return 'Expiry must be MM/YY';
-    if (!/^\d{3,4}$/.test(String(d.cvv || ''))) return 'Invalid CVV';
+  if (method === 'Mobile Money') {
+    const phone = String(d.phone || '').trim();
+
+    if (!/^\+?[0-9]{9,15}$/.test(phone)) {
+      return 'Enter a valid mobile money number.';
+    }
+
+    const provider = String(d.provider || 'mpesa').toLowerCase();
+
+    if (!['mpesa', 'atl'].includes(provider)) {
+      return 'Choose a supported mobile money provider.';
+    }
+
     return null;
   }
-  if (method === 'PayPal') return v.isEmail(d.email) ? null : 'Enter your PayPal email';
-  return 'Choose a payment method';
+
+  if (method === 'Credit Card') {
+    return null; // Card details are collected securely by Paystack.
+  }
+
+  return 'Choose a supported payment method.';
 }
 // Get the current delivery fee for customer checkout
 router.get('/delivery-fee', customer, async (req, res) => {
@@ -574,8 +584,9 @@ router.get('/orders', customer, async (req, res) => {
   const r = await pool.query(
     `SELECT
        o.*,
-       p.method,
-       p.reference,
+p.method,
+p.reference,
+p.status AS payment_status,
        COALESCE(da.delivery_status, 'Awaiting Assignment') AS delivery_status,
        du.full_name AS delivery_person,
        du.phone AS delivery_phone,
@@ -604,18 +615,56 @@ router.get('/orders', customer, async (req, res) => {
 });
 
 
+
 router.post('/orders/:id/cancel', customer, async (req, res) => {
   const id = v.posInt(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Invalid order ID' });
+
   const client = await pool.connect();
+
   try {
     await client.query('BEGIN');
-    const o = await client.query(`UPDATE orders SET status='Cancelled' WHERE id=$1 AND user_id=$2 AND status='Placed' RETURNING id`, [id, req.session.user.id]);
-    if (!o.rowCount) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Only newly placed orders can be cancelled' }); }
-    await client.query('UPDATE products p SET stock=p.stock+oi.quantity FROM order_items oi WHERE oi.order_id=$1 AND oi.product_id=p.id', [id]);
-    await client.query(`UPDATE payments SET status='Refunded' WHERE order_id=$1`, [id]);
+
+    const o = await client.query(
+      `UPDATE orders
+       SET status = 'Cancelled'
+       WHERE id = $1
+         AND user_id = $2
+         AND status = 'Awaiting Payment'
+         AND EXISTS (
+           SELECT 1 FROM payments
+           WHERE payments.order_id = orders.id
+             AND payments.status = 'Pending'
+         )
+       RETURNING id`,
+      [id, req.session.user.id]
+    );
+
+    if (!o.rowCount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Only orders awaiting payment can be cancelled here.'
+      });
+    }
+
+    await client.query(
+      `UPDATE payments
+       SET status = 'Cancelled', updated_at = NOW()
+       WHERE order_id = $1 AND status = 'Pending'`,
+      [id]
+    );
+
     await client.query('COMMIT');
+
     log(req.session.user.id, 'ORDER_CANCELLED', `order ${id}`, req.ip);
     res.json({ ok: true });
-  } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 });
+
 module.exports = router;

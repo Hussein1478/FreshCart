@@ -678,11 +678,10 @@ const grandTotal = subtotal + deliveryFee;
   <div id="promoMessage" class="small mt-2"></div>
 </div>
 
-          <select class="form-select" name="method" id="payMethod">
-            <option>Mobile Money</option>
-            <option>Credit Card</option>
-            <option>PayPal</option>
-          </select>
+          <select class="form-select" name="method" id="payMethod" required>
+  <option value="Mobile Money">Mobile Money (M-Pesa / Airtel Money)</option>
+  <option value="Credit Card">Credit / Debit Card</option>
+</select>
 
           <div id="payFields"></div>
 
@@ -734,9 +733,7 @@ const grandTotal = subtotal + deliveryFee;
             <p class="small text-muted mt-3 mb-0">
               Delivery fees are set by FreshCart administration.
             </p>
-            <p class="small text-muted mt-2 mb-0">
-              Demonstration payment gateway – no real money is moved and card details are never stored.
-            </p>
+            
           </div>
         </div>
       </div>
@@ -1286,11 +1283,109 @@ else if (tab === 'discounts') {
 };
 
 function payFields() {
-  const m = $('#payMethod')?.value, box = $('#payFields'); if (!box) return;
-  box.innerHTML = m === 'Mobile Money' ? '<input class="form-control" name="pay_phone" placeholder="Mobile money number e.g. 0712345678" required>'
-    : m === 'Credit Card' ? '<div class="vstack gap-2"><input class="form-control" name="pay_number" placeholder="Card number" inputmode="numeric" maxlength="23" autocomplete="off" required><div class="row g-2"><div class="col"><input class="form-control" name="pay_expiry" placeholder="MM/YY" maxlength="5" required></div><div class="col"><input class="form-control" name="pay_cvv" placeholder="CVV" inputmode="numeric" maxlength="4" autocomplete="off" required></div></div></div>'
-    : '<input class="form-control" type="email" name="pay_email" placeholder="PayPal email" required>';
+  const method = $('#payMethod')?.value;
+  const box = $('#payFields');
+
+  if (!box) return;
+
+  if (method === 'Mobile Money') {
+    box.innerHTML = `
+      <label class="form-label">Mobile money provider</label>
+      <select class="form-select mb-2" name="pay_provider" required>
+        <option value="mpesa">M-Pesa</option>
+        <option value="atl">Airtel Money</option>
+      </select>
+
+      <label class="form-label">Phone number</label>
+      <input
+        class="form-control"
+        name="pay_phone"
+        type="tel"
+        placeholder="e.g. 0712345678"
+        required
+      >
+    `;
+  } else if (method === 'Credit Card') {
+    box.innerHTML = `
+      <p class="small text-muted">
+        You will be redirected to Paystack's secure payment page
+        to complete your card payment.
+      </p>
+    `;
+  
+  }
 }
+
+
+async function paymentCallback() {
+  const app = $('#app');
+
+  app.innerHTML = `
+    <div class="card shadow-sm mx-auto" style="max-width:600px">
+      <div class="card-body text-center p-4">
+        <h4>Confirming your payment</h4>
+        <p>Please wait while FreshCart checks your payment with Paystack.</p>
+      </div>
+    </div>
+  `;
+
+  const hashQuery = location.hash.includes('?')
+    ? location.hash.split('?').slice(1).join('?')
+    : '';
+
+  const params = new URLSearchParams(
+    location.search || hashQuery
+  );
+
+  const reference =
+    params.get('reference') || params.get('trxref');
+
+  if (!reference) {
+    app.innerHTML = `
+      <div class="alert alert-warning">
+        No payment reference was returned. Please check your orders
+        before attempting another payment.
+      </div>
+      <a href="#orders" class="btn btn-success">My orders</a>
+    `;
+    return;
+  }
+
+  try {
+    const result = await api('/paystack/verify', 'POST', {
+      reference
+    });
+
+    app.innerHTML = `
+      <div class="card shadow-sm mx-auto" style="max-width:600px">
+        <div class="card-body text-center p-4">
+          <h4 class="text-success">Payment confirmed</h4>
+          <p>Your payment has been verified successfully.</p>
+          <p>Order number: <strong>#${esc(result.order_id)}</strong></p>
+          <a href="#orders" class="btn btn-success">View my orders</a>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    app.innerHTML = `
+      <div class="card shadow-sm mx-auto" style="max-width:600px">
+        <div class="card-body p-4 text-center">
+          <h4>Payment not yet confirmed</h4>
+          <p>
+            Paystack has not yet provided confirmation.
+            Your order has not been marked as paid.
+          </p>
+          <p class="small text-muted">
+            Reference: ${esc(reference)}
+          </p>
+          <a href="#orders" class="btn btn-success">Check my orders</a>
+        </div>
+      </div>
+    `;
+  }
+}
+
+
 async function route() {
   const name = (location.hash || '#shop').slice(1).split('?')[0];
   const policy = {
@@ -1302,7 +1397,15 @@ async function route() {
     contact: ['Contact FreshCart', 'Phone: +254 799 726 409 · Email: customerservices@freshcart.co.ke · Location: Oludhe Tower, Kilimani, Nairobi, Kenya.']
   };
   if (policy[name]) { const [title, body] = policy[name]; $('#app').innerHTML = `<div class="card shadow-sm mx-auto" style="max-width:850px"><div class="card-body p-4"><a href="#shop" class="small">← Back to shopping</a><h2 class="mt-3 text-success">${esc(title)}</h2><p class="mt-3">${esc(body)}</p><p class="small text-muted">Please review and approve these policy terms against FreshCart's actual business operations before publishing.</p></div></div>`; window.scrollTo(0,0); return; }
-  try { await (views[name] || views.shop)(); } catch (e) { fail(e); }
+  if (name === 'payment-callback') {
+  await paymentCallback();
+} else {
+  try {
+    await (views[name] || views.shop)();
+  } catch (e) {
+    fail(e);
+  }
+}
   window.scrollTo(0, 0);
 }
 async function showReviews(id, name, withForm) {
@@ -1544,16 +1647,27 @@ else if (f.id === 'resetPasswordForm') {
   toast(r.message);
   location.hash = '#login';
 }
-    else if (f.id === 'checkoutForm') {
-  const payment = {
-    phone: d.pay_phone,
-    number: d.pay_number,
-    expiry: d.pay_expiry,
-    cvv: d.pay_cvv,
-    email: d.pay_email
-  };
+    
+else if (f.id === 'checkoutForm') {
+  
 
-  const r = await api('/checkout', 'POST', {
+  const payment = {};
+
+  if (d.method === 'Mobile Money') {
+    let phone = String(d.pay_phone || '').replace(/[\s-]/g, '');
+
+    // Convert Kenyan local numbers to international format.
+    if (/^0[17]\d{8}$/.test(phone)) {
+      phone = '+254' + phone.slice(1);
+    } else if (/^254[17]\d{8}$/.test(phone)) {
+      phone = '+' + phone;
+    }
+
+    payment.phone = phone;
+    payment.provider = d.pay_provider;
+  }
+
+  const r = await api('/paystack/initialize', 'POST', {
     address: d.address,
     slot: d.slot,
     method: d.method,
@@ -1561,9 +1675,32 @@ else if (f.id === 'resetPasswordForm') {
     promo_code: d.promo_code
   });
 
-  toast(`Order #${r.order_id} placed! Payment ref ${r.reference}`);
+  if (d.method === 'Credit Card') {
+    if (!r.authorization_url) {
+      throw new Error('Paystack did not return a secure payment link.');
+    }
+
+    const paymentUrl = new URL(r.authorization_url);
+
+    if (
+      paymentUrl.protocol !== 'https:' ||
+      paymentUrl.hostname !== 'checkout.paystack.com'
+    ) {
+      throw new Error('The payment link could not be verified.');
+    }
+
+    window.location.href = paymentUrl.href;
+    return;
+  }
+
+  toast(
+    r.display_text ||
+    'Payment request sent. Check your phone and follow the payment instructions.'
+  );
+
   location.hash = '#orders';
 }
+
     else if (f.id === 'profileForm') { await api('/auth/profile', 'PUT', d); me = (await api('/auth/me')).user; renderNav(); toast('Profile saved'); }
     else if (f.id === 'pwForm') { await api('/auth/password', 'PUT', d); f.reset(); toast('Password updated'); }
     else if (f.id === 'mfaForm') { await api('/auth/mfa/enable', 'POST', d); me.mfa_enabled = true; toast('MFA enabled'); route(); }
