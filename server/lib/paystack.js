@@ -34,8 +34,16 @@ async function request(path, options = {}) {
   const result = await response.json().catch(() => ({}));
 
   if (!response.ok || !result.status) {
-    throw new Error(result.message || 'Paystack request failed');
-  }
+  console.error('Paystack API diagnostic:', {
+    httpStatus: response.status,
+    apiStatus: result.status,
+    message: result.message,
+    chargeStatus: result.data?.status,
+    displayText: result.data?.display_text
+  });
+
+  throw new Error(result.message || 'Paystack request failed');
+}
 
   return result.data;
 }
