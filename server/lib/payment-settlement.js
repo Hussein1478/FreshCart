@@ -162,21 +162,28 @@ async function settlePayment(reference, verifiedPayment) {
       );
     }
 
-    await client.query(
-      `UPDATE cart_items c
-       SET quantity = c.quantity - oi.quantity
-       FROM order_items oi
-       WHERE oi.order_id = $1
-         AND c.user_id = $2
-         AND c.product_id = oi.product_id`,
-      [payment.order_id, payment.user_id]
-    );
+    // Remove cart items that were completely purchased.
+await client.query(
+  `DELETE FROM cart_items c
+   USING order_items oi
+   WHERE oi.order_id = $1
+     AND c.user_id = $2
+     AND c.product_id = oi.product_id
+     AND c.quantity <= oi.quantity`,
+  [payment.order_id, payment.user_id]
+);
 
-    await client.query(
-      `DELETE FROM cart_items
-       WHERE user_id = $1 AND quantity <= 0`,
-      [payment.user_id]
-    );
+// Reduce quantities for cart items that still have remaining products.
+await client.query(
+  `UPDATE cart_items c
+   SET quantity = c.quantity - oi.quantity
+   FROM order_items oi
+   WHERE oi.order_id = $1
+     AND c.user_id = $2
+     AND c.product_id = oi.product_id
+     AND c.quantity > oi.quantity`,
+  [payment.order_id, payment.user_id]
+);
 
     await client.query('COMMIT');
 
