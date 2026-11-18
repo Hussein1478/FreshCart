@@ -1,5 +1,40 @@
 const pool = require('../db/pool');
 const { log } = require('./auth');
+async function createOrderNotifications(client, payment, review = false) {
+  const total = Number(payment.amount).toFixed(2);
+
+  const customerTitle = review
+    ? 'Payment received - order under review'
+    : 'Order placed successfully';
+
+  const customerMessage = review
+    ? `Your payment for FreshCart order #${payment.order_id} has been received. Total: KES ${total}. Your order is under stock review.`
+    : `Your FreshCart order #${payment.order_id} has been confirmed successfully. Amount paid: KES ${total}.`;
+
+  const adminTitle = review
+    ? 'Order requires stock review'
+    : 'New customer order';
+
+  const adminMessage = review
+    ? `Order #${payment.order_id} has been paid, but requires stock review. Amount: KES ${total}.`
+    : `A new paid order #${payment.order_id} has been placed. Amount: KES ${total}.`;
+
+  await client.query(
+    `INSERT INTO customer_notifications
+     (user_id, title, message, notification_type)
+     VALUES ($1, $2, $3, 'order')`,
+    [payment.user_id, customerTitle, customerMessage]
+  );
+
+  await client.query(
+    `INSERT INTO customer_notifications
+     (user_id, title, message, notification_type)
+     SELECT id, $1, $2, 'order'
+     FROM users
+     WHERE role = 'admin'`,
+    [adminTitle, adminMessage]
+  );
+}
 
 async function settlePayment(reference, verifiedPayment) {
   const client = await pool.connect();
@@ -122,6 +157,7 @@ async function settlePayment(reference, verifiedPayment) {
       [payment.promo_code]
     );
   }
+    await createOrderNotifications(client, payment, true);
 
   await client.query('COMMIT');
 
@@ -184,7 +220,7 @@ await client.query(
      AND c.quantity > oi.quantity`,
   [payment.order_id, payment.user_id]
 );
-
+await createOrderNotifications(client, payment, false);
     await client.query('COMMIT');
 
     try {

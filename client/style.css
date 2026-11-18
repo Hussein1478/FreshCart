@@ -91,3 +91,331 @@
   min-height: 44px;
   margin: 0 auto;
 }
+
+
+
+/* =====================================
+   FRESHCART EMAIL VERIFICATION DESIGN
+===================================== */
+
+.verification-section {
+  min-height: 75vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 45px 16px;
+  background: #f3f8f5;
+}
+
+.verification-card {
+  width: 100%;
+  max-width: 480px;
+  margin: auto;
+  padding: 38px 30px;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(20, 80, 45, 0.10);
+}
+
+.verification-icon {
+  width: 68px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: #e5f5eb;
+  color: #16834a;
+  font-size: 32px;
+}
+
+.verification-card h2 {
+  color: #173d2a;
+  font-size: 27px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.verification-description {
+  color: #718078;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.verification-card label {
+  display: block;
+  text-align: left;
+  color: #34483b;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.verification-card input[type="email"] {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #dce7df;
+  border-radius: 9px;
+  margin-bottom: 23px;
+  outline: none;
+}
+
+.verification-card input:focus {
+  border-color: #16834a;
+  box-shadow: 0 0 0 3px rgba(22, 131, 74, 0.10);
+}
+
+.verification-label {
+  margin-bottom: 13px !important;
+}
+
+.verification-code-boxes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 15px 0 25px;
+}
+
+.verification-code-boxes .verification-digit {
+  width: 48px;
+  height: 55px;
+  padding: 0;
+  border: 1px solid #cddbd1;
+  border-radius: 10px;
+  background: #fbfdfb;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #16834a;
+  outline: none;
+}
+
+.verification-code-boxes .verification-digit:focus {
+  border: 2px solid #16834a;
+  background: #f0faf3;
+  box-shadow: 0 0 0 3px rgba(22, 131, 74, 0.10);
+}
+
+.verification-submit {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  background: #16834a;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.verification-submit:hover {
+  background: #106638;
+  transform: translateY(-1px);
+}
+
+.verification-resend {
+  margin-top: 20px;
+  border: none;
+  background: transparent;
+  color: #16834a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.verification-back {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.verification-back a {
+  color: #64766b;
+  text-decoration: none;
+}
+
+.verification-back a:hover {
+  color: #16834a;
+  text-decoration: underline;
+}
+
+@media (max-width: 420px) {
+  .verification-card {
+    padding: 30px 16px;
+  }
+
+  .verification-code-boxes {
+    gap: 6px;
+  }
+
+  .verification-code-boxes .verification-digit {
+    width: 42px;
+    height: 50px;
+    font-size: 21px;
+  }
+}
+
+/* FreshCart promotional offers */
+.fresh-promotions {
+  margin: 30px 0 38px;
+  padding: 25px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: linear-gradient(120deg, #f0fff4, #ffffff, #e5f8eb);
+  border: 1px solid #d8efdf;
+}
+
+.promo-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.promo-heading small {
+  color: #168044;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.promo-heading h2 {
+  margin: 5px 0;
+  color: #174c2e;
+  font-weight: 800;
+}
+
+.promo-heading p {
+  margin: 0;
+  color: #65756a;
+}
+
+.promo-sparkle {
+  color: #168044;
+  font-weight: 800;
+  white-space: nowrap;
+  animation: promoPulse 2s ease-in-out infinite;
+}
+
+.promo-offer-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 5px 2px 16px;
+  scrollbar-width: thin;
+}
+
+.promo-offer-card {
+  flex: 0 0 235px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid #d9ebdf;
+  box-shadow: 0 5px 18px rgba(20, 90, 48, .08);
+  animation: promoFloat 4s ease-in-out infinite;
+}
+
+.promo-offer-card:nth-child(even) {
+  animation-delay: 1s;
+}
+
+.promo-discount {
+  display: inline-block;
+  padding: 7px 12px;
+  margin-bottom: 12px;
+  border-radius: 30px;
+  background: #168044;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.promo-offer-card strong {
+  display: block;
+  color: #174c2e;
+  font-size: 1.3rem;
+  letter-spacing: 1px;
+}
+
+.promo-offer-card p {
+  min-height: 42px;
+  margin: 8px 0;
+  color: #52665a;
+}
+
+.promo-offer-card small {
+  color: #718078;
+}
+
+.promo-product-track {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #d8efdf;
+}
+
+.promo-product-item {
+  flex: 0 0 105px;
+  text-align: center;
+  animation: promoFloat 3.5s ease-in-out infinite;
+}
+
+.promo-product-item:nth-child(even) {
+  animation-delay: .8s;
+}
+
+.promo-product-item img {
+  width: 82px;
+  height: 82px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 13px rgba(0, 0, 0, .12);
+}
+
+.promo-product-item span {
+  display: block;
+  margin-top: 7px;
+  color: #315b40;
+  font-size: .8rem;
+  font-weight: 700;
+}
+
+@keyframes promoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes promoPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .65; transform: scale(1.06); }
+}
+
+@media (max-width: 576px) {
+  .fresh-promotions {
+    padding: 17px;
+  }
+
+  .promo-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .promo-heading h2 {
+    font-size: 1.35rem;
+  }
+
+  .promo-product-track {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-sparkle,
+  .promo-offer-card,
+  .promo-product-item {
+    animation: none;
+  }
+}

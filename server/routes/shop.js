@@ -355,6 +355,32 @@ router.get('/delivery-fee', customer, async (req, res) => {
     delivery_fee: Number(result.rows[0].delivery_fee)
   });
 });
+// Public list of currently available promotional offers
+router.get('/promotions', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         code,
+         description,
+         discount_type,
+         discount_value,
+         minimum_order
+       FROM promo_codes
+       WHERE active = TRUE
+         AND (starts_at IS NULL OR starts_at <= NOW())
+         AND (expires_at IS NULL OR expires_at > NOW())
+         AND (usage_limit IS NULL OR usage_count < usage_limit)
+       ORDER BY discount_value DESC`
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Promotions loading error:', err);
+    res.status(500).json({
+      error: 'Could not load current promotions.'
+    });
+  }
+});
 router.post('/validate-promo', customer, async (req, res) => {
   try {
     const code = String(req.body.code || '').trim().toUpperCase();

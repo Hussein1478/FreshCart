@@ -31,7 +31,8 @@ contentSecurityPolicy: {
     connectSrc: [
   "'self'",
   "https://accounts.google.com",
-  "https://photon.komoot.io"
+  "https://photon.komoot.io",
+  "https://unpkg.com"
 ],
     scriptSrcAttr: ["'none'"],
     styleSrc: [
@@ -81,13 +82,22 @@ app.use(session({                                                           // S
   resave: false, saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'strict', secure: isProd || !!useTLS, maxAge: 1000 * 60 * 60 * 2 }   // Secure cookies
 }));
-// CSRF defence: state-changing requests must be JSON (blocks cross-site form posts) + SameSite=Strict cookie
+// CSRF defence: requests containing data must use JSON.
 app.use('/api', (req, res, next) => {
-  if (['POST', 'PUT', 'DELETE'].includes(req.method) && !req.is('application/json') && req.headers['content-length'] !== '0')
+  const hasRequestBody =
+    Number(req.headers['content-length'] || 0) > 0 ||
+    Boolean(req.headers['transfer-encoding']);
+
+  if (
+    ['POST', 'PUT', 'DELETE'].includes(req.method) &&
+    hasRequestBody &&
+    !req.is('application/json')
+  ) {
     return res.status(415).json({ error: 'JSON required' });
+  }
+
   next();
 });
-
 const CLIENT = path.join(__dirname, '..', 'client');                         // client folder is served as static files
 app.use(express.static(CLIENT));
 const wrap = r => { r.stack.forEach(l => { if (l.route) l.route.stack.forEach(h => { const f = h.handle; if (f.constructor.name === 'AsyncFunction') h.handle = (q, s, n) => f(q, s, n).catch(n); }); }); return r; };

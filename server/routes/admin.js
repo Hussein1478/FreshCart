@@ -1,5 +1,10 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const {
+  sendVerificationEmail,
+  isConfigured
+} = require('../lib/email');
 const pool = require('../db/pool');
 const v = require('../lib/validate');
 const { log, requireRole } = require('../lib/auth');
@@ -226,6 +231,7 @@ router.get('/delivery-staff', adminOnly, async (req, res) => {
 });
 // ---- Staff accounts + activity log (admin) ----
 
+
 router.post('/staff', adminOnly, async (req, res) => {
   const role = ['admin', 'vendor', 'delivery'].includes(req.body.role)
     ? req.body.role
@@ -256,11 +262,27 @@ router.post('/staff', adminOnly, async (req, res) => {
     });
   }
 
+  if (!isConfigured()) {
+    return res.status(503).json({
+      error: 'Email verification service is not configured.'
+    });
+  }
+
+  const client = await pool.connect();
+
   try {
-    await pool.query(
+    const code = String(crypto.randomInt(100000, 1000000));
+    const codeHash = crypto.createHash('sha256')
+      .update(code)
+      .digest('hex');
+
+    await client.query('BEGIN');
+
+    const result = await client.query(
       `INSERT INTO users
-       (full_name, email, phone, password_hash, role)
-       VALUES ($1, $2, $3, $4, $5)`,
+       (full_name, email, phone, password_hash, role, email_verified)
+       VALUES ($1, $2, $3, $4, $5, FALSE)
+       RETURNING id`,
       [
         name,
         email,
@@ -270,6 +292,19 @@ router.post('/staff', adminOnly, async (req, res) => {
       ]
     );
 
+    const userId = result.rows[0].id;
+
+    await client.query(
+      `INSERT INTO email_verification_tokens
+       (user_id, code_hash, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+      [userId, codeHash]
+    );
+
+    await sendVerificationEmail(email, name, code);
+
+    await client.query('COMMIT');
+
     log(
       req.session.user.id,
       'STAFF_CREATED',
@@ -277,16 +312,34 @@ router.post('/staff', adminOnly, async (req, res) => {
       req.ip
     );
 
-    res.status(201).json({ ok: true });
+    return res.status(201).json({
+      ok: true,
+      message: 'Staff account created. A verification code has been sent to the staff member’s email.'
+    });
+
   } catch (e) {
+    await client.query('ROLLBACK');
+
     if (e.code === '23505') {
       return res.status(409).json({
         error: 'Email already registered'
       });
     }
-    throw e;
+
+    console.error('Staff creation failed:', {
+      message: e.message,
+      code: e.code
+    });
+
+    return res.status(503).json({
+      error: 'Unable to create staff account or send verification email. Please try again.'
+    });
+
+  } finally {
+    client.release();
   }
 });
+
 
 
 // ---- Promo code management (admin only) ----

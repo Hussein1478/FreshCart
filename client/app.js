@@ -165,40 +165,133 @@ route();
     toast('Google sign-in failed. Please try again.', 'error');
   }
 }const views = {
-    'verify-email': async function () {
-    const email = new URLSearchParams(
-      location.hash.split('?')[1] || ''
-    ).get('email') || '';
+'verify-email': async function () {
+  const email = new URLSearchParams(
+    location.hash.split('?')[1] || ''
+  ).get('email') || '';
 
-    $('#app').innerHTML = `
-      <section class="auth-section">
-        <div class="auth-card">
-          <h2>Verify Your Email</h2>
-          <p>Enter the six-digit verification code sent to your email address.</p>
+  const safeEmail = email.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
-          <form id="verifyEmailForm">
-            <label>Email Address</label>
-            <input type="email" name="email" required
-              value="${email.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"
-              placeholder="Your email address">
+  $('#app').innerHTML = `
+    <section class="auth-section verification-section">
+      <div class="auth-card verification-card">
 
-            <label>Verification Code</label>
-            <input type="text" name="code" required
-              inputmode="numeric" pattern="[0-9]{6}"
-              maxlength="6" placeholder="Enter 6-digit code">
+        <div class="verification-icon">✉</div>
 
-            <button type="submit">Verify Email</button>
-</form>
+        <h2>Verify Your Email</h2>
 
-<button type="button" id="resendVerificationBtn">
-  Resend Verification Code
-</button>
+        <p class="verification-description">
+          We've sent a six-digit verification code to your email.
+          Enter it below to activate your FreshCart account.
+        </p>
 
-<p><a href="#login">Back to Login</a></p>
-        </div>
-      </section>
-    `;
-  },
+        <form id="verifyEmailForm">
+
+          <label for="verificationEmail">Email Address</label>
+          <input
+            type="email"
+            id="verificationEmail"
+            name="email"
+            required
+            value="${safeEmail}"
+            placeholder="Your email address"
+          >
+
+          <label class="verification-label">
+            Verification Code
+          </label>
+
+          <div class="verification-code-boxes">
+            ${Array.from({ length: 6 }, (_, i) => `
+              <input
+                type="text"
+                class="verification-digit"
+                inputmode="numeric"
+                pattern="[0-9]"
+                maxlength="1"
+                required
+                aria-label="Verification digit ${i + 1}"
+                autocomplete="${i === 0 ? 'one-time-code' : 'off'}"
+              >
+            `).join('')}
+          </div>
+
+          <input type="hidden" name="code" id="verificationCode">
+
+          <button type="submit" class="verification-submit">
+            Verify Email
+          </button>
+        </form>
+
+        <button type="button" id="resendVerificationBtn"
+          class="verification-resend">
+          Resend Verification Code
+        </button>
+
+        <p class="verification-back">
+          <a href="#login">Back to Login</a>
+        </p>
+
+      </div>
+    </section>
+  `;
+
+  const boxes = [
+    ...document.querySelectorAll('.verification-digit')
+  ];
+
+  const hiddenCode = document.getElementById('verificationCode');
+
+  function updateCode() {
+    hiddenCode.value = boxes.map(box => box.value).join('');
+  }
+
+  boxes.forEach((box, index) => {
+    box.addEventListener('input', () => {
+      box.value = box.value.replace(/\D/g, '').slice(-1);
+      updateCode();
+
+      if (box.value && boxes[index + 1]) {
+        boxes[index + 1].focus();
+      }
+    });
+
+    box.addEventListener('keydown', event => {
+      if (event.key === 'Backspace' && !box.value && boxes[index - 1]) {
+        boxes[index - 1].focus();
+      }
+
+      if (event.key === 'ArrowLeft' && boxes[index - 1]) {
+        boxes[index - 1].focus();
+      }
+
+      if (event.key === 'ArrowRight' && boxes[index + 1]) {
+        boxes[index + 1].focus();
+      }
+    });
+
+    box.addEventListener('paste', event => {
+      event.preventDefault();
+
+      const pasted = event.clipboardData
+        .getData('text')
+        .replace(/\D/g, '')
+        .slice(0, 6);
+
+      pasted.split('').forEach((digit, i) => {
+        if (boxes[i]) boxes[i].value = digit;
+      });
+
+      updateCode();
+
+      const nextEmpty = boxes.find(box => !box.value);
+      (nextEmpty || boxes[5]).focus();
+    });
+  });
+
+  boxes[0].focus();
+},
+
 
     notifications: async function () {
       if (!me) {
@@ -267,12 +360,52 @@ route();
 
   async shop() {
     const qs = new URLSearchParams({ q: state.q, category: state.cat });
-    const [prods] = await Promise.all([api('/products?' + qs), cats.length ? 0 : api('/categories').then(c => cats = c)]);
+    const [prods, , promotions] = await Promise.all([
+  api('/products?' + qs),
+  cats.length ? 0 : api('/categories').then(c => cats = c),
+  api('/promotions').catch(() => [])
+]);
     $('#app').innerHTML = `
       <div class="hero-strip">SAVE MORE WITH <span>FRESHCART</span></div>
       <section class="hero-carousel" aria-label="FreshCart promotions">
         <div class="hero-copy"><small>FRESH DEALS · GREAT VALUE</small><h1>Save more.<br><span>Eat fresher.</span></h1><p>Everyday groceries, fresh produce and household essentials delivered across Kenya.</p><a class="btn btn-fresh" href="#shop">Shop fresh deals</a></div>
         <div class="hero-visual" aria-hidden="true"><img src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=650&q=85" alt="Fresh vegetables" loading="lazy"></div><div class="hero-dots"><i></i><i></i><i></i><i></i></div>
+      </section>
+            <section class="fresh-promotions" aria-label="Available FreshCart discounts">
+        <div class="promo-heading">
+          <div>
+            <small>FRESH DEALS JUST FOR YOU</small>
+            <h2>FreshCart Special Offers</h2>
+            <p>Use these discount codes at checkout and save on your basket.</p>
+          </div>
+          <span class="promo-sparkle">✦ SAVE MORE ✦</span>
+        </div>
+
+        <div class="promo-offer-track">
+          ${promotions.length ? promotions.map(p => `
+            <article class="promo-offer-card">
+              <div class="promo-discount">
+                ${p.discount_type === 'percent'
+                  ? `${Number(p.discount_value)}% OFF`
+                  : `KES ${Number(p.discount_value).toLocaleString()} OFF`}
+              </div>
+              <strong>${esc(p.code)}</strong>
+              <p>${esc(p.description || 'Save more on your FreshCart order.')}</p>
+              <small>Minimum order: KES ${Number(p.minimum_order).toLocaleString()}</small>
+            </article>
+          `).join('') : `
+            <p class="text-muted">New FreshCart offers are coming soon.</p>
+          `}
+        </div>
+
+        <div class="promo-product-track">
+          ${prods.slice(0, 6).map(p => `
+            <div class="promo-product-item">
+              ${productImage(p)}
+              <span>${esc(p.name)}</span>
+            </div>
+          `).join('')}
+        </div>
       </section>
       <div class="section-heading"><div><h2>Shop by search & category</h2><p>Find your everyday essentials at great prices.</p></div></div>
       <div class="row g-2 mb-4">
