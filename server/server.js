@@ -103,4 +103,4 @@ app.use((err, req, res, next) => { console.error(err); res.status(500).json({ er
 
 const PORT = +(process.env.PORT || 3000);
 const server = useTLS ? https.createServer({ key: fs.readFileSync(process.env.TLS_KEY), cert: fs.readFileSync(process.env.TLS_CERT) }, app) : http.createServer(app);
-server.listen(PORT, () => console.log(`FreshCart running on ${useTLS ? 'https' : 'http'}://localhost:${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`FreshCart running on ${useTLS ? 'https' : 'http'}://0.0.0.0:${PORT}`));
